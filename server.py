@@ -1,6 +1,7 @@
 import socket
 import threading
 import time
+import json
 
 HOST = '127.0.0.1'
 PORT = 53333
@@ -20,17 +21,33 @@ class SudokuServer:
         
     def client_join(self, conn, addr, player_id):
         conn.sendall(f"Player {player_id} joined the game.".encode())
+        buffer = ""
         while True:
             try:
                 data = conn.recv(1024).decode()
                 if not data:
                     print(f"Player {player_id} disconnected.")
                     break
-            # Handle player actions (e.g., selecting a cell, entering a number)
-            # Broadcast updates to all players
+                
+                buffer += data
+                
+                # Process messages in the buffer one by one
+                while "\n" in buffer:
+                    message, buffer = buffer.split("\n", 1)
+                    # Print out the JSON in the server, process later
+                    try:
+                        json_data = json.loads(message)
+                        print(f"Received from player {player_id}: {json_data}")
+                    except json.JSONDecodeError:
+                        print(f"Received invalid JSON: {message}")
+                
             except ConnectionResetError:
-                print(f"Connection with {player_id} lost.")
+                print(f"Connection with player {player_id} lost.")
                 break
+            except Exception as e:
+                print(f"Error: {e}")
+                break
+                
         conn.close()
         
     def start(self):
