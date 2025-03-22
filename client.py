@@ -47,8 +47,7 @@ class SudokuClient:
             
         message = {
             "type": "move",
-            "row": row,
-            "col": col,
+            "cell": [row, col],
             "value": value
         }
         
