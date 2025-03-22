@@ -13,15 +13,19 @@ class SudokuClient:
         self.window.title("MultiDoku")
         self.socket = None
         self.connected = False
-        self.create_grid()
         
-    def create_grid(self):
+    def create_grid(self, board):
+        
         for i in range(9):
             for j in range(9):
                 var = tk.StringVar()
                 cell = tk.Entry(self.window, width=2, font=("Arial", 18), justify="center", textvariable=var)
                 cell.grid(row=i, column=j, padx=5, pady=5)
-                var.trace("w", lambda name, index, mode, var=var, i=i, j=j: self.validate_input(var, i, j))
+                if board[i][j] != 0:
+                    cell.insert(0, board[i][j])
+                
+                var.trace_add("write", lambda name, index, mode, var=var, i=i, j=j: self.validate_input(var, i, j))
+                
                 self.grid[i][j] = {"entry": cell, "var": var}
     
     def validate_input(self, var, i, j):
@@ -46,7 +50,7 @@ class SudokuClient:
     def send_move_to_server(self, row, col, value):
             
         message = {
-            "type": "move",
+            "type": "cell_update",
             "cell": [row, col],
             "value": value
         }
@@ -65,9 +69,27 @@ class SudokuClient:
             self.socket.connect((HOST, PORT))
             self.connected = True
             print("Connected to server")
-            #handle more comminucation to the server
+            
+            join = self.socket.recv(1024).decode()
+            print(f"{join}")
+            
+            client.get_board()
+            # handle more comminucation to the server
+            
+           
+            
         except Exception as e:
             print(f"Failed to connect to server: {e}")
+    
+    def get_board(self):
+       
+        # get empty board
+        data = self.socket.recv(1024).decode()
+        board_json=json.loads(data)
+        board=board_json['board']
+
+        
+        client.create_grid(board)
     
     def start(self):
         self.connect_to_server()
