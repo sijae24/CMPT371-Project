@@ -2,6 +2,7 @@ import socket
 import tkinter as tk
 import time
 import json
+from server import Cell
 
 HOST = '127.0.0.1'
 PORT = 53333
@@ -14,18 +15,32 @@ class SudokuClient:
         self.socket = None
         self.connected = False
         
-    def create_grid(self, board):
+    def start_game(self):
+        message = {
+            "type": "start_game",
+        }
         
+        json_message = json.dumps(message)
+        self.socket.sendall((json_message + "\n").encode())
+        print(f"Starting the game {json_message}")
+    
+    def create_grid(self, board):
+        button = tk.Button(self.window, text="Start", command=self.start_game, activebackground="blue")
         for i in range(9):
             for j in range(9):
                 var = tk.StringVar()
                 cell = tk.Entry(self.window, width=2, font=("Arial", 18), justify="center", textvariable=var)
                 cell.grid(row=i, column=j, padx=5, pady=5)
+
+                # Insert the initial value if it's not empty and make it readonly
                 if board[i][j] != 0:
-                    cell.insert(0, board[i][j])
-                
-                var.trace_add("write", lambda name, index, mode, var=var, i=i, j=j: self.validate_input(var, i, j))
-                
+                    cell.insert(0, str(board[i][j]))  
+                    cell.config(state="readonly")
+                else:
+                    # Make the cell editable
+                    cell.config(state="normal")
+                    var.trace_add("write", lambda name, index, mode, var=var, i=i, j=j: self.validate_input(var, i, j))
+
                 self.grid[i][j] = {"entry": cell, "var": var}
     
     def validate_input(self, var, i, j):
@@ -63,6 +78,43 @@ class SudokuClient:
         except Exception as e:
             print(f"Error sending move to server: {e}")
             
+            
+    def in_game(self):
+        
+        #change the type of reading, refer top server.start function with the buffer
+        while(True):
+            try:
+                data = self.socket.recv(1024).decode()
+                if (data.type=="game_over"):
+                    break
+                elif(data.type=="cell_lock"):
+                    self.grid[data.cell[0]][data.cell[1]]["entry"].config(state="readonly")
+                    self.grid[data.cell[0]][data.cell[1]]["entry"].config(bg="yellow")
+                    time.sleep(10)
+                    self.grid[data.cell[0]][data.cell[1]]["entry"].config(bg="white")
+                    self.grid[data.cell[0]][data.cell[1]]["entry"].config(state="normal")
+                elif(data.type=="cell_update"):
+                    self.grid[data.cell[0]][data.cell[1]]["var"].set(data.value)
+
+                    
+
+                # if(data gameover){
+                    
+                # }elif(data=playermove):
+                    # self.grid[i][j].
+                    #print player move
+                    
+                    #update gameboard
+                    #insert value into the game board
+                    #update it with cell.
+                # elif(data=)
+                if not data:
+                    break
+                print(f"Received from server: {data}")
+            except Exception as e:
+                print(f"Failed to connect to server: {e}")
+
+
     def connect_to_server(self):
         try:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -74,13 +126,14 @@ class SudokuClient:
             print(f"{join}")
             
             client.get_board()
-            # handle more comminucation to the server
             
-           
+            client.in_game()
+            # handle more comminucation to the server
             
         except Exception as e:
             print(f"Failed to connect to server: {e}")
     
+
     def get_board(self):
        
         # get empty board
@@ -94,6 +147,7 @@ class SudokuClient:
     def start(self):
         self.connect_to_server()
         self.window.mainloop()
+        
 if __name__=="__main__":
     client = SudokuClient()
     client.start()
