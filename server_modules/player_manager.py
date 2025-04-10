@@ -5,6 +5,8 @@ PLAYER_COLORS = ['#FF0000', '#0000FF', '#00FF00', '#FFA500',
                  '#800080', '#FFFF00', '#00FFFF', '#FF00FF']
 
 class PlayerManager:
+    """PlayerManager class manages the connected players. 
+        It handles client connections, disconnections, and message processing."""
     def __init__(self, max_players):
         """Initialize the PlayerManager instance with given max_players."""
         self.max_players = max_players
