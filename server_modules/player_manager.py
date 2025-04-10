@@ -75,7 +75,6 @@ class PlayerManager:
 
     def process_message(self, message, sock, player_id, board, broadcaster, on_game_over):
         """Process a message from a client."""
-        # Split the incoming message into parts based on the '|' delimiter
         parts = message.split('|')
         command = parts[0]
 
