@@ -73,32 +73,47 @@ class PlayerManager:
 
     def process_message(self, message, sock, player_id, board, broadcaster, on_game_over):
         """Process a message from a client."""
+        # Split the incoming message into parts based on the '|' delimiter
         parts = message.split('|')
         command = parts[0]
 
+        # Handle a LOCK_REQUEST command
         if command == "LOCK_REQUEST" and len(parts) == 3:
-            r, c = int(parts[1]), int(parts[2])
+            r, c = int(parts[1]), int(parts[2]) 
+            # Attempt to lock the specified cell for the player
             granted = board.try_lock(r, c, player_id)
             if granted:
+                # Notify the client that the lock was granted
                 sock.sendall(f"LOCK_GRANTED|{r}|{c}\n".encode())
+                # Broadcast the lock to all other clients
                 broadcaster.broadcast_lock(r, c, player_id)
             else:
+                # Notify the client that the lock was denied
                 sock.sendall(f"LOCK_DENIED|{r}|{c}\n".encode())
 
+        # Handle a CLAIM_ATTEMPT command
         elif command == "CLAIM_ATTEMPT" and len(parts) == 3:
-            r, c = int(parts[1]), int(parts[2])
+            r, c = int(parts[1]), int(parts[2])  
+            # Attempt to claim the specified cell for the player
             success = board.claim(r, c, player_id)
             if success:
+                # Broadcast the updated board and scores to all clients
                 broadcaster.broadcast_board()
                 broadcaster.broadcast_scores()
+                # Check if the game is over and handle it if necessary
                 on_game_over()
 
+        # Handle a RELEASE_LOCK command
         elif command == "RELEASE_LOCK" and len(parts) == 3:
-            r, c = int(parts[1]), int(parts[2])
+            r, c = int(parts[1]), int(parts[2])  
+            # Release the lock on the specified cell for the player
             board.release_lock(r, c, player_id)
+            # Broadcast the unlock to all other clients
             broadcaster.broadcast_unlock(r, c)
 
+        # Handle a DISCONNECT command
         elif command == "DISCONNECT":
+            # Disconnect the client and clean up resources
             self.disconnect(sock, board, broadcaster)
 
     def disconnect(self, sock, board, broadcaster):
