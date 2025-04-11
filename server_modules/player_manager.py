@@ -77,55 +77,109 @@ class PlayerManager:
         finally:
             self.disconnect(client_socket, board, broadcaster)
 
-    def process_message(self, message, sock, player_id, board, broadcaster, on_game_over):
+    
+    def process_message(self, message, client_socket, player_id, board, broadcaster, on_game_over):
         """Process a message from a client."""
-        parts = message.split('|')
-        command = parts[0]
-
-        # Handle a LOCK_REQUEST command
-        if command == "LOCK_REQUEST" and len(parts) == 3:
-            r, c = int(parts[1]), int(parts[2])
-            # Start timer on first lock request if not already started
-            if self.game_server and not self.game_server.timer_started:
-                self.game_server.timer_start_time = time.time()
-                self.game_server.timer_started = True
-                print("Game timer started!")
-
-            # Attempt to lock the specified cell for the player
-            granted = board.try_lock(r, c, player_id)
-            if granted:
-                # Notify the client that the lock was granted
-                sock.sendall(f"LOCK_GRANTED|{r}|{c}\n".encode())
-                # Broadcast the lock to all other clients
-                broadcaster.broadcast_lock(r, c, player_id)
-            else:
-                # Notify the client that the lock was denied
-                sock.sendall(f"LOCK_DENIED|{r}|{c}\n".encode())
-
-        # Handle a CLAIM_ATTEMPT command
-        elif command == "CLAIM_ATTEMPT" and len(parts) == 3:
-            r, c = int(parts[1]), int(parts[2])  
-            # Attempt to claim the specified cell for the player
-            success = board.claim(r, c, player_id)
-            if success:
-                # Broadcast the updated board and scores to all clients
-                broadcaster.broadcast_board()
-                broadcaster.broadcast_scores()
-                # Check if the game is over and handle it if necessary
-                on_game_over()
-
-        # Handle a RELEASE_LOCK command
-        elif command == "RELEASE_LOCK" and len(parts) == 3:
-            r, c = int(parts[1]), int(parts[2])  
-            # Release the lock on the specified cell for the player
-            board.release_lock(r, c, player_id)
-            # Broadcast the unlock to all other clients
-            broadcaster.broadcast_unlock(r, c)
-
-        # Handle a DISCONNECT command
-        elif command == "DISCONNECT":
-            # Disconnect the client and clean up resources
-            self.disconnect(sock, board, broadcaster)
+        try:
+            parts = message.split('|', 1)
+            command = parts[0]
+            payload = parts[1] if len(parts) > 1 else ""
+    
+            # Handle a CLAIM_ATTEMPT command
+            if command == "CLAIM_ATTEMPT":
+                r, c = map(int, payload.split('|'))
+                # Attempt to claim the specified cell for the player
+                success = board.claim(r, c, player_id)
+                if success:
+                    # Broadcast the updated board and scores to all clients
+                    broadcaster.broadcast_board()
+                    broadcaster.broadcast_scores()
+                    # Check if the game is over and handle it if necessary
+                    on_game_over()
+    
+            # Handle a SCRIBBLE_UPDATE command
+            elif command == "SCRIBBLE_UPDATE":
+                # Format: SCRIBBLE_UPDATE|row|col|x|y
+                try:
+                    parts = payload.split('|')
+                    if len(parts) >= 3:
+                        r, c = int(parts[0]), int(parts[1])
+                        x, y = int(parts[2]), int(parts[3])
+                        
+                        # Check if the player has a lock on this square
+                        if (r, c) in board.locks and board.locks[(r, c)] == player_id:
+                            # Broadcast the scribble update to all clients
+                            # Remove the exclude_socket parameter
+                            broadcaster.broadcast(f"PLAYER_SCRIBBLE|{r}|{c}|{player_id}|{x}|{y}\n")
+                            # Don't log every scribble update
+                        else:
+                            client_socket.sendall(f"ERROR|You don't have a lock on square ({r},{c}).\n".encode('utf-8'))
+                except Exception as e:
+                    print(f"Error processing SCRIBBLE_UPDATE: {e}")
+                    client_socket.sendall(f"ERROR|Invalid scribble format: {e}\n".encode('utf-8'))
+                
+            # Handle a RELEASE_LOCK command
+            elif command == "RELEASE_LOCK":
+                r, c = map(int, payload.split('|'))
+                # Release the lock on the specified cell for the player
+                board.release_lock(r, c, player_id)
+                # Broadcast the unlock to all other clients
+                broadcaster.broadcast_unlock(r, c)
+    
+            # Handle a DISCONNECT command
+            elif command == "DISCONNECT":
+                # Disconnect the client and clean up resources
+                self.disconnect(client_socket, board, broadcaster)
+    
+            # Keep this LOCK_REQUEST handler which has the correct format
+            elif command == "LOCK_REQUEST":
+                try:
+                    # Add debug print to see what's coming in
+                    print(f"LOCK_REQUEST payload: '{payload}'")
+                    
+                    # Split the payload and handle potential empty parts
+                    parts = payload.split('|')
+                    if len(parts) >= 2:
+                        r, c = int(parts[0]), int(parts[1])
+                    else:
+                        # Try direct parsing if there's only one part (might be comma-separated)
+                        if ',' in payload:
+                            r, c = map(int, payload.split(','))
+                        else:
+                            # Try parsing as a single value
+                            parts = payload.strip()
+                            r, c = int(parts.split()[0]), int(parts.split()[1])
+                    
+                    print(f"Player {player_id} requesting lock for ({r},{c})")
+                    
+                    # Start timer on first lock request if not already started
+                    if self.game_server and not self.game_server.timer_started:
+                        self.game_server.timer_start_time = time.time()
+                        self.game_server.timer_started = True
+                        print("Game timer started!")
+                    
+                    # Check if the square is available (not claimed and not locked)
+                    if board.is_square_available(r, c):
+                        # Lock the square for this player
+                        board.lock_square(r, c, player_id)
+                        
+                        # Send confirmation to the requesting client
+                        client_socket.sendall(f"LOCK_GRANTED|{r}|{c}\n".encode('utf-8'))
+                        
+                        # Broadcast to all clients that the square is locked
+                        broadcaster.broadcast(f"SQUARE_LOCKED|{r}|{c}|{player_id}\n")
+                        print(f"Lock granted to player {player_id} for ({r},{c})")
+                    else:
+                        # Square is not available
+                        client_socket.sendall(f"LOCK_DENIED|{r}|{c}\n".encode('utf-8'))
+                        print(f"Lock denied to player {player_id} for ({r},{c})")
+                except Exception as e:
+                    print(f"Error processing LOCK_REQUEST: {e}, payload: '{payload}'")
+                    client_socket.sendall(f"ERROR|Invalid lock request format: {e}\n".encode('utf-8'))
+    
+        except Exception as e:
+            print(f"Error processing message '{message}' from player {player_id}: {e}")
+            client_socket.sendall(f"ERROR|Invalid message format: {e}\n".encode('utf-8'))
 
     def disconnect(self, sock, board, broadcaster):
         """Disconnect a client."""

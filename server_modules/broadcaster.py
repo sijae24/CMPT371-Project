@@ -45,6 +45,6 @@ class Broadcaster:
         self.broadcast(f"SQUARE_LOCKED|{r}|{c}|{player_id}\n")
 
     def broadcast_unlock(self, r, c):
-        """ Broadcast that a square has been unlocked. """
+        """Broadcast that a square has been unlocked."""
         self.broadcast(f"SQUARE_UNLOCKED|{r}|{c}\n")
 

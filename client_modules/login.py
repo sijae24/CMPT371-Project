@@ -9,6 +9,16 @@ class LoginComponent:
         
         self.client = game_client
         self.setup_input_fields()
+        
+        # Load the image
+        try:
+            import os
+            image_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "draw.png")
+            self.logo_image = pygame.image.load(image_path)
+            self.logo_image = pygame.transform.scale(self.logo_image, (150, 150)) 
+        except pygame.error as e:
+            print(f"Error loading image: {e}")
+            self.logo_image = None
 
     def setup_input_fields(self):
         """Initialize input fields for the login screen, including the player name, server ip, and server port fields.
@@ -38,6 +48,12 @@ class LoginComponent:
         """Draw the login screen with title, input fields, connect button, and status message."""
         
         screen.fill(COLOR_WHITE)
+
+        # Draw the logo image if loaded
+        if self.logo_image:
+            # Position the image above the title
+            image_rect = self.logo_image.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 180))
+            screen.blit(self.logo_image, image_rect)
 
         # Center the title
         title_surf = self.client.font_title.render("Deny & Conquer", True, COLOR_BLACK)
