@@ -53,7 +53,7 @@ class GameClient:
 
         # --- Game State ---
         self.player_name = ""
-        self.server_ip = "142.58.223.155"
+        self.server_ip = "127.0.0.1"
         self.server_port = "65433"
         self.my_player_id = -1
         self.my_color_tuple = (0, 0, 0)
