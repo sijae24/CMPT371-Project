@@ -1,4 +1,4 @@
-# CMPT371-Project# Deny & Conquer
+# CMPT 371: Deny & Conquer
 
 Deny & Conquer is a multiplayer grid-based game where players compete to claim squares on a shared game board. The game is implemented using Python and leverages the `pygame` library for the client-side interface and socket programming for server-client communication.
 
