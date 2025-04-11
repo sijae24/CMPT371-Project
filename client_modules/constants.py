@@ -7,7 +7,7 @@ TARGET_COVERAGE = 0.50  # Minimum coverage required to claim a square (50%)
 # --- Screen Constants ---
 GRID_AREA_SIZE = 480  # 
 GRID_TOP_LEFT = (50, 70)  # Top-left corner of the grid on screen
-SCREEN_WIDTH = GRID_TOP_LEFT[0] + GRID_AREA_SIZE + 120  # Add 100 pixels for the player list
+SCREEN_WIDTH = GRID_TOP_LEFT[0] + GRID_AREA_SIZE + 200  # Add 100 pixels for the player list
 SCREEN_HEIGHT = GRID_TOP_LEFT[1] + GRID_AREA_SIZE + 50  # Add 50 pixels for the player list
 
 # --- Colors for the game ---
