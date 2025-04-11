@@ -240,7 +240,7 @@ class GameClient:
                 self.game_over = True
                 self.is_scribbling = False
                 self.game_over_message = payload
-                self.set_status(f"GAME OVER! {self.game_over_message}", COLOR_STATUS_SUCCESS)
+                self.set_status(f"{self.game_over_message}", COLOR_STATUS_SUCCESS)
                 self.log_message(f"--- {self.game_over_message} ---")
             elif command == "TIMER_UPDATE":
                 self.remaining_time = int(payload)
