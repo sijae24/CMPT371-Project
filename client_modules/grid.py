@@ -126,7 +126,7 @@ class GridComponent:
         
         # Draw own scribble lines if scribbling
         if self.client.is_scribbling and len(self.scribble_points) > 1:
-            pygame.draw.lines(screen, self.client.my_color_tuple, False, self.scribble_points, 3)
+            pygame.draw.lines(screen, self.client.my_color_tuple, False, self.scribble_points, 5)
         
         # Draw preview of scribble while waiting for lock (semi-transparent)
         elif self.client.pending_lock_request is not None and len(self.scribble_points) > 1:
@@ -182,6 +182,25 @@ class GridComponent:
                 locker_id = self.client.locked_squares.get((r, c))
                 locker_name = self.client.players.get(locker_id, {}).get('name', f'P{locker_id}')
                 self.client.set_status(f"Square ({r},{c}) locked by {locker_name}.", COLOR_STATUS_INFO)
+
+    def handle_mouse_motion(self, pos):
+        """Update scribble points while mouse is being dragged."""
+
+        
+        if self.client.is_scribbling and self.client.scribble_square is not None:
+            r_curr, c_curr = self.coords_to_grid(pos[0], pos[1])
+            if (r_curr, c_curr) == self.client.scribble_square:
+                self.scribble_points.append(pos)
+                radius = 5  
+                #  Calculate coverage pixels
+                for dx in range(-radius, radius + 1):
+                    for dy in range(-radius, radius + 1):
+                        px, py = int(pos[0] + dx), int(pos[1] + dy)
+                        sq_rect = self.grid_to_screen_rect(
+                            self.client.scribble_square[0], self.client.scribble_square[1]
+                        )
+                        if sq_rect.collidepoint(px, py):
+                            self.scribble_coverage_pixels.add((px, py))
 
     def handle_mouse_up(self):
         """Handle mouse release events such as claiming or releasing locks."""
