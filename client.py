@@ -44,7 +44,7 @@ class GameClient:
 
         # --- Game State ---
         self.player_name = ""
-        self.server_ip = "127.0.0.1"
+        self.server_ip = "142.58.223.155"
         self.server_port = "65433"
         self.my_player_id = -1
         self.my_color_tuple = (0, 0, 0)
@@ -242,6 +242,11 @@ class GameClient:
                 self.game_over_message = payload
                 self.set_status(f"{self.game_over_message}", COLOR_STATUS_SUCCESS)
                 self.log_message(f"--- {self.game_over_message} ---")
+
+                # Schedule client shutdown after 20 seconds
+                print("Client will shut down in 20 seconds...")
+                threading.Timer(20, self.on_closing).start()
+
             elif command == "TIMER_UPDATE":
                 self.remaining_time = int(payload)
                 print(f"Timer updated: {self.remaining_time} seconds remaining")
@@ -372,7 +377,7 @@ class GameClient:
         self.connected = False
         self.cleanup_connection()
         pygame.quit()
-        sys.exit()
+        sys.exit(0)
 
 
 if __name__ == "__main__":

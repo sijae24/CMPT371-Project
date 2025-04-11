@@ -11,7 +11,7 @@ class GameServer:
     """The GameServer class is responsible for
     starting and stopping the game server."""
 
-    def __init__(self, host='0.0.0.0', port=65433, grid_size=4, max_players=4):
+    def __init__(self, host='0.0.0.0', port=65433, grid_size=5, max_players=4):
         """
         Initialize the GameServer instance with given parameters.
         """
@@ -109,7 +109,7 @@ class GameServer:
             self.broadcaster.broadcast(f"GAME_OVER|{result_msg}\n")
             # Schedule server shutdown after 30 seconds
             print("Server will shut down in 30 seconds...")
-            threading.Timer(30, self.shutdown).start()
+            threading.Timer(20, self.shutdown).start()
 
     def shutdown(self):
         """
