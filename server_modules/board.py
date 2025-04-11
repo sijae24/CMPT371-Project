@@ -12,8 +12,9 @@ class GameBoard:
         """
         self.grid_size = grid_size
         self.board = [[0] * grid_size for _ in range(grid_size)]
-        self.locks = {}  
+        self.locks = {}
         self.lock = threading.Lock()
+        self.claimed_squares = 0  # New counter for claimed squares
 
     def try_lock(self, r, c, player_id):
         """
@@ -38,6 +39,7 @@ class GameBoard:
                 self.board[r][c] = player_id
                 # Release the square
                 del self.locks[(r, c)]
+                self.claimed_squares += 1  # Increment the counter
                 return True
             return False
 
@@ -69,7 +71,7 @@ class GameBoard:
         Check if all squares are claimed
         """
         with self.lock:
-            return all(self.board[r][c] != 0 for r in range(self.grid_size) for c in range(self.grid_size))
+            return self.claimed_squares == self.grid_size * self.grid_size
 
     def calculate_winner(self, player_manager):
         """

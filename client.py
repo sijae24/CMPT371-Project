@@ -11,12 +11,10 @@ BUFFER_SIZE = 4096
 TARGET_COVERAGE = 0.50 # Deny & Conquer Rule
 
 # --- Pygame Settings ---
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 600
 GRID_AREA_SIZE = 480 # Pixel size of the playable grid area
 GRID_TOP_LEFT = (50, 70) # Top-left corner of the grid on screen
-INFO_AREA_TOP_LEFT = (GRID_TOP_LEFT[0] + GRID_AREA_SIZE + 30, GRID_TOP_LEFT[1])
-INFO_AREA_WIDTH = SCREEN_WIDTH - INFO_AREA_TOP_LEFT[0] - 30
+SCREEN_WIDTH = GRID_TOP_LEFT[0] + GRID_AREA_SIZE + 100  # Add 200 pixels for the player list
+SCREEN_HEIGHT = GRID_TOP_LEFT[1] + GRID_AREA_SIZE + 50  # Add 100 pixels for the player list
 
 # --- Colors ---
 COLOR_WHITE = (255, 255, 255)
@@ -86,12 +84,12 @@ class GameClient:
         self.grid_size = 8
         self.board = []
         self.players = {} # {id: {'name': name, 'color': hex_str}}
-        self.scores = {}
         self.locked_squares = {} # (r, c): player_id
         self.game_over = False
         self.game_over_message = ""
         self.status_text = "Enter details and connect."
         self.status_color = COLOR_STATUS_INFO
+        self.remaining_time = 120  # Timer. Default to 2 minutes
 
         # --- Scribbling State ---
         self.is_scribbling = False
@@ -107,12 +105,25 @@ class GameClient:
 
         # --- Login Scene UI Elements ---
         self.input_fields = {
-            "name": {"rect": pygame.Rect(250, 200, 300, 30), "text": self.player_name, "label": "Player Name:"},
-            "ip": {"rect": pygame.Rect(250, 250, 300, 30), "text": self.server_ip, "label": "Server IP:"},
-            "port": {"rect": pygame.Rect(250, 300, 300, 30), "text": self.server_port, "label": "Server Port:"},
+            "name": {
+                "rect": pygame.Rect(SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT // 2 - 60, 300, 30),
+                "text": self.player_name,
+                "label": "Player Name:"
+            },
+            "ip": {
+                "rect": pygame.Rect(SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT // 2 - 20, 300, 30),
+                "text": self.server_ip,
+                "label": "Server IP:"
+            },
+            "port": {
+                "rect": pygame.Rect(SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT // 2 + 20, 300, 30),
+                "text": self.server_port,
+                "label": "Server Port:"
+            },
         }
+        self.connect_button_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 + 70, 200, 40)
+
         self.active_field = None # Key of the active input field ("name", "ip", "port")
-        self.connect_button_rect = pygame.Rect(300, 360, 200, 40)
 
         # Start processing network messages immediately
         self.start_queue_processing()
@@ -124,12 +135,16 @@ class GameClient:
 
     def hex_to_rgb(self, hex_color):
         """Converts a hex color string like '#FF0000' to an RGB tuple (255, 0, 0)."""
-        hex_color = hex_color.lstrip('#')
-        try:
-            return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
-        except ValueError:
-            print(f"Warning: Invalid color hex {hex_color}, using black.")
-            return (0, 0, 0) # Default to black on error
+        if not hasattr(self, '_color_cache'):
+            self._color_cache = {}
+        if hex_color not in self._color_cache:
+            hex_color = hex_color.lstrip('#')
+            try:
+                self._color_cache[hex_color] = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+            except ValueError:
+                print(f"Warning: Invalid color hex {hex_color}, using black.")
+                self._color_cache[hex_color] = (0, 0, 0)  # Default to black on error
+        return self._color_cache[hex_color]
 
     # === Network Handling (Similar to Tkinter version) ===
 
@@ -230,9 +245,6 @@ class GameClient:
             elif command == "UPDATE_PLAYERS":
                  self.players = ast.literal_eval(payload)
 
-            elif command == "UPDATE_SCORES":
-                 self.scores = ast.literal_eval(payload)
-
             elif command == "LOCK_GRANTED":
                  r, c = map(int, payload.split('|'))
                  if self.pending_lock_request == (r, c):
@@ -277,6 +289,10 @@ class GameClient:
                  self.set_status(f"GAME OVER! {self.game_over_message}", COLOR_STATUS_SUCCESS)
                  self.log_message(f"--- {self.game_over_message} ---")
 
+            elif command == "TIMER_UPDATE":
+                self.remaining_time = int(payload)
+                print(f"Timer updated: {self.remaining_time} seconds remaining")
+
         except Exception as e: self.log_message(f"Error processing msg '{message}': {e}"); import traceback; traceback.print_exc()
 
 
@@ -318,8 +334,12 @@ class GameClient:
 
     def log_message(self, message):
          # In pygame, we'd need to render log messages to a surface or manage a list
-         # For simplicity, just print to console for now
-         print(f"LOG: {message}")
+        print(f"LOG: {message}")
+        if not hasattr(self, '_log_messages'):
+            self._log_messages = []
+        self._log_messages.append(message)
+        if len(self._log_messages) > 10:  # Limit log size
+            self._log_messages.pop(0)
 
     # === Coordinate Conversion ===
 
@@ -353,8 +373,13 @@ class GameClient:
 
     def draw_login_scene(self):
         self.screen.fill(COLOR_WHITE)
+
+        # Center the title
         title_surf = self.font_title.render("Deny & Conquer", True, COLOR_BLACK)
-        self.screen.blit(title_surf, (SCREEN_WIDTH // 2 - title_surf.get_width() // 2, 100))
+        self.screen.blit(
+            title_surf,
+            (SCREEN_WIDTH // 2 - title_surf.get_width() // 2, SCREEN_HEIGHT // 2 - 120)
+        )
 
         # Draw Input Fields
         for key, field in self.input_fields.items():
@@ -381,9 +406,8 @@ class GameClient:
 
         # Draw Status Message
         status_surf = self.font_ui_small.render(self.status_text, True, self.status_color)
-        status_rect = status_surf.get_rect(center=(SCREEN_WIDTH // 2, 450))
+        status_rect = status_surf.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 130))
         self.screen.blit(status_surf, status_rect)
-
 
     def draw_game_scene(self):
         self.screen.fill(COLOR_WHITE)
@@ -397,7 +421,7 @@ class GameClient:
 
         # --- Draw Grid Area Background ---
         grid_bg_rect = pygame.Rect(GRID_TOP_LEFT[0], GRID_TOP_LEFT[1], GRID_AREA_SIZE, GRID_AREA_SIZE)
-        pygame.draw.rect(self.screen, COLOR_DARK_GREY, grid_bg_rect, 1) # Border
+        pygame.draw.rect(self.screen, COLOR_DARK_GREY, grid_bg_rect, 1)  # Border
 
         # --- Draw Squares ---
         if self.board:
@@ -409,17 +433,17 @@ class GameClient:
                     outline_color = COLOR_GRID_LINE
 
                     if player_id != 0:
-                         player_info = self.players.get(player_id)
-                         if player_info:
-                              fill_color = self.hex_to_rgb(player_info['color'])
-                         else:
-                              fill_color = COLOR_DARK_GREY # Unknown player claimed
-                         outline_color = COLOR_BLACK
+                        player_info = self.players.get(player_id)
+                        if player_info:
+                            fill_color = self.hex_to_rgb(player_info['color'])
+                        else:
+                            fill_color = COLOR_DARK_GREY  # Unknown player claimed
+                        outline_color = COLOR_BLACK
 
                     pygame.draw.rect(self.screen, fill_color, square_rect)
                     # Don't draw outline if white, let grid lines show
                     if fill_color != COLOR_WHITE:
-                         pygame.draw.rect(self.screen, outline_color, square_rect, 1)
+                        pygame.draw.rect(self.screen, outline_color, square_rect, 1)
 
         # --- Draw Grid Lines ---
         for i in range(1, self.grid_size):
@@ -432,65 +456,54 @@ class GameClient:
 
         # --- Draw Scribble Lines ---
         if self.is_scribbling and len(self.scribble_points) > 1:
-            pygame.draw.lines(self.screen, COLOR_SCRIBBLE, False, self.scribble_points, 3) # Adjust thickness (width=3)
+            pygame.draw.lines(self.screen, COLOR_SCRIBBLE, False, self.scribble_points, 3)  # Adjust thickness (width=3)
 
         # --- Draw Lock Indicators ---
         for (r, c), player_id in self.locked_squares.items():
-             square_rect = self.grid_to_screen_rect(r, c)
-             player_info = self.players.get(player_id)
-             lock_color_rgb = COLOR_DARK_GREY # Default if player unknown
-             alpha = ALPHA_LOCK_OTHER
-             text_prefix = f"P{player_id}" # Default text
+            square_rect = self.grid_to_screen_rect(r, c)
+            player_info = self.players.get(player_id)
+            lock_color_rgb = COLOR_DARK_GREY  # Default if player unknown
+            alpha = ALPHA_LOCK_OTHER
+            text_prefix = f"P{player_id}"  # Default text
 
-             if player_info:
-                  lock_color_rgb = self.hex_to_rgb(player_info['color'])
-                  text_prefix = player_info['name']
+            if player_info:
+                lock_color_rgb = self.hex_to_rgb(player_info['color'])
+                text_prefix = player_info['name']
 
-             if player_id == self.my_player_id:
-                  alpha = ALPHA_LOCK_SELF
-                  text_prefix = "You"
+            if player_id == self.my_player_id:
+                alpha = ALPHA_LOCK_SELF
+                text_prefix = "You"
 
-             # Draw semi-transparent overlay
-             draw_rect_alpha(self.screen, lock_color_rgb, alpha, square_rect)
+            # Draw semi-transparent overlay
+            draw_rect_alpha(self.screen, lock_color_rgb, alpha, square_rect)
 
-             # Draw "Locked by" text (optional, can get cluttered)
-             # lock_text = f"Locked by {text_prefix}"
-             # text_surf = self.font_lock.render(lock_text, True, COLOR_WHITE) # White text on overlay
-             # text_rect = text_surf.get_rect(center=square_rect.center)
-             # self.screen.blit(text_surf, text_rect)
+        # --- Draw Timer ---
+        timer_text = f"Time Left: {self.remaining_time // 60}:{self.remaining_time % 60:02d}"
+        timer_surf = self.font_status.render(timer_text, True, COLOR_BLACK)
+        timer_pos = timer_surf.get_rect(midright=(SCREEN_WIDTH - 10, 25))
+        self.screen.blit(timer_surf, timer_pos)
 
+        # --- Draw Player List ---
+        player_list_x = GRID_TOP_LEFT[0] + GRID_AREA_SIZE + 20  # Start to the right of the grid
+        player_list_y_start = GRID_TOP_LEFT[1] + (GRID_AREA_SIZE // 2) - (len(self.players) * 30 // 2)  # Center vertically
+        player_list_y = player_list_y_start
 
-        # --- Draw Info Area (Players & Scores) ---
-        info_x = INFO_AREA_TOP_LEFT[0]
-        info_y = INFO_AREA_TOP_LEFT[1]
+        for player_id, player_info in self.players.items():
+            color = self.hex_to_rgb(player_info['color'])
+            name = player_info['name']
+            is_you = "(You)" if player_id == self.my_player_id else ""
 
-        title_surf = self.font_ui.render("Players & Scores", True, COLOR_BLACK)
-        self.screen.blit(title_surf, (info_x, info_y))
-        info_y += title_surf.get_height() + 10
+            # Draw player color swatch
+            swatch_rect = pygame.Rect(player_list_x, player_list_y, 20, 20)
+            pygame.draw.rect(self.screen, color, swatch_rect)
+            pygame.draw.rect(self.screen, COLOR_BLACK, swatch_rect, 1)  # Border
 
-        if not self.players:
-             no_players_surf = self.font_ui_small.render("No players yet.", True, COLOR_DARK_GREY)
-             self.screen.blit(no_players_surf, (info_x, info_y))
-        else:
-             sorted_players = sorted(self.players.items(), key=lambda item: self.scores.get(item[0], 0), reverse=True)
-             for p_id, player_info in sorted_players:
-                 score = self.scores.get(p_id, 0)
-                 player_name = player_info['name']
-                 player_color_str = player_info['color']
-                 player_color_rgb = self.hex_to_rgb(player_color_str)
-                 you_marker = " (You)" if p_id == self.my_player_id else ""
+            # Draw player name
+            name_text = f"{name} {is_you}"
+            name_surf = self.font_ui.render(name_text, True, COLOR_BLACK)
+            self.screen.blit(name_surf, (player_list_x + 30, player_list_y))
 
-                 # Draw color swatch
-                 swatch_rect = pygame.Rect(info_x, info_y, 15, 15)
-                 pygame.draw.rect(self.screen, player_color_rgb, swatch_rect)
-                 pygame.draw.rect(self.screen, COLOR_BLACK, swatch_rect, 1) # Border
-
-                 # Draw text
-                 display_text = f"{player_name}{you_marker}: {score}"
-                 player_surf = self.font_ui_small.render(display_text, True, COLOR_BLACK)
-                 self.screen.blit(player_surf, (info_x + 20, info_y)) # Offset for swatch
-                 info_y += player_surf.get_height() + 5 # Spacing
-
+            player_list_y += 30  # Move to the next line
 
     # === Event Handling ===
 
@@ -593,10 +606,7 @@ class GameClient:
                              self.set_status(f"Claim failed for ({r},{c}) - <50% coverage.", COLOR_STATUS_INFO)
 
                         # Cleanup scribble state
-                        self.is_scribbling = False
-                        self.scribble_square = None
-                        self.scribble_points = []
-                        self.scribble_coverage_pixels.clear()
+                        self.reset_scribble_state()
                         # Lock indicator removed by server response (SQUARE_UNLOCKED or UPDATE_BOARD)
 
                    elif self.pending_lock_request:
@@ -604,6 +614,13 @@ class GameClient:
                         print("Mouse released while lock pending.")
                         self.pending_lock_request = None
                         self.set_status("Lock request cancelled.", COLOR_STATUS_INFO)
+
+    def reset_scribble_state(self):
+        """Resets the scribble-related state."""
+        self.is_scribbling = False
+        self.scribble_square = None
+        self.scribble_points = []
+        self.scribble_coverage_pixels.clear()
 
     # === Main Loop ===
 
@@ -632,7 +649,7 @@ class GameClient:
             pygame.display.flip()
 
             # --- Cap Framerate ---
-            self.clock.tick(60) # Limit to 60 FPS
+            self.clock.tick(60)  # Limit to 60 FPS
 
         # --- Exit ---
         self.on_closing()

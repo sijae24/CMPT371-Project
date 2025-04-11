@@ -51,7 +51,6 @@ class PlayerManager:
             # Broadcast the current state of the board
             broadcaster.broadcast_players()
             broadcaster.broadcast_board()
-            broadcaster.broadcast_scores()
             broadcaster.broadcast(f"INFO|{player_name} joined the game.\n", sender_socket=client_socket, exclude_sender=True)
 
             # Receive and process messages
@@ -131,8 +130,6 @@ class PlayerManager:
                 broadcaster.broadcast(f"INFO|{info['name']} left the game.\n")
                 # Broadcast the updated state of the players to all connected clients
                 broadcaster.broadcast_players()
-                # Broadcast the updated state of the scores to all connected clients
-                broadcaster.broadcast_scores()
         try:
             sock.close()
         except:

@@ -1,6 +1,7 @@
 import socket
 import threading
 import sys
+import time
 from server_modules.player_manager import PlayerManager
 from server_modules.board import GameBoard
 from server_modules.broadcaster import Broadcaster
@@ -28,19 +29,25 @@ class GameServer:
         # Create the broadcaster
         self.broadcaster = Broadcaster(self.player_manager, self.board)
         self.game_active = True
+        self.timer_duration = 120  # Timer duration in seconds (2 minutes)
+        self.timer_start_time = None  # To track when the timer starts
 
     def start(self):
         """
         Start the game server and listen for incoming connections.
         """
         try:
-            #  Bind the socket to the host and port
+            # Bind the socket to the host and port
             self.server_socket.bind((self.host, self.port))
 
             # Listen for incoming connections
             self.server_socket.listen()
             print(f"Deny & Conquer Server listening on {self.host}:{self.port}")
             print(f"Grid Size: {self.grid_size}x{self.grid_size}, Max Players: {self.max_players}")
+
+            # Start a thread to broadcast the timer
+            timer_thread = threading.Thread(target=self.broadcast_timer, daemon=True)
+            timer_thread.start()
 
             # Start accepting connections
             while self.game_active:
@@ -49,23 +56,14 @@ class GameServer:
                     client_socket, addr = self.server_socket.accept()
                     print(f"Accepted connection from {addr}")
 
-                    # Start a new thread to handle the client by passing the client socket and address
+                    # Start a new thread to handle the client
                     client_thread = threading.Thread(
                         target=self.player_manager.handle_client,
-                        # The arguments are the new client socket and its address
-                        args=(client_socket, addr,
-                              # the board to play on
-                              self.board,
-                              # the broadcaster to send messages with
-                              self.broadcaster,
-                              # the function to call when the game is over
-                              self.check_game_over),
-                        # Set daemon to True so that the thread exits when the main thread does
+                        args=(client_socket, addr, self.board, self.broadcaster, self.check_game_over),
                         daemon=True
                     )
-
-                    # Start the new thread
                     client_thread.start()
+
                 except KeyboardInterrupt:
                     print("\nCtrl+C detected. Shutting down server...")
                     self.game_active = False
@@ -75,6 +73,23 @@ class GameServer:
         finally:
             # Shut down the server when we're done
             self.shutdown()
+
+    def broadcast_timer(self):
+        """
+        Broadcast the remaining time to all clients at regular intervals.
+        """
+        while self.game_active:
+            if self.timer_start_time is not None:
+                elapsed_time = time.time() - self.timer_start_time
+                remaining_time = max(0, self.timer_duration - int(elapsed_time))
+                self.broadcaster.broadcast(f"TIMER_UPDATE|{remaining_time}\n")
+
+                # End the game if the timer reaches 0
+                if remaining_time == 0:
+                    self.check_game_over()
+                    break
+
+            time.sleep(1)  # Broadcast every second
 
     def check_game_over(self):
         """
@@ -91,8 +106,8 @@ class GameServer:
         Shutdown the server and close all connections.
         """
         print("Shutting down server...")
+        self.game_active = False
         self.broadcaster.broadcast("INFO|Server is shutting down.\n")
         self.player_manager.disconnect_all()
         self.server_socket.close()
         print("Server shut down.")
-        sys.exit(0)
