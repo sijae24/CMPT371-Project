@@ -58,7 +58,7 @@ class GridComponent:
                 r, c = self.client.scribble_square
                 self.client.send_message(f"SCRIBBLE_UPDATE|{r}|{c}|{pos[0]}|{pos[1]}\n")
                 
-                radius = 3  
+                radius = 5  
                 #  Calculate coverage pixels
                 for dx in range(-radius, radius + 1):
                     for dy in range(-radius, radius + 1):
@@ -182,25 +182,6 @@ class GridComponent:
                 locker_id = self.client.locked_squares.get((r, c))
                 locker_name = self.client.players.get(locker_id, {}).get('name', f'P{locker_id}')
                 self.client.set_status(f"Square ({r},{c}) locked by {locker_name}.", COLOR_STATUS_INFO)
-
-    def handle_mouse_motion(self, pos):
-        """Update scribble points while mouse is being dragged."""
-
-        
-        if self.client.is_scribbling and self.client.scribble_square is not None:
-            r_curr, c_curr = self.coords_to_grid(pos[0], pos[1])
-            if (r_curr, c_curr) == self.client.scribble_square:
-                self.scribble_points.append(pos)
-                radius = 5  
-                #  Calculate coverage pixels
-                for dx in range(-radius, radius + 1):
-                    for dy in range(-radius, radius + 1):
-                        px, py = int(pos[0] + dx), int(pos[1] + dy)
-                        sq_rect = self.grid_to_screen_rect(
-                            self.client.scribble_square[0], self.client.scribble_square[1]
-                        )
-                        if sq_rect.collidepoint(px, py):
-                            self.scribble_coverage_pixels.add((px, py))
 
     def handle_mouse_up(self):
         """Handle mouse release events such as claiming or releasing locks."""
