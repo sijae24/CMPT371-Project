@@ -122,7 +122,7 @@ class GridComponent:
                     scribble_color = self.client.hex_to_rgb(player_info['color'])
                 
                 # Draw the scribble lines
-                pygame.draw.lines(screen, scribble_color, False, points, 3)
+                pygame.draw.lines(screen, scribble_color, False, points, 5)
         
         # Draw own scribble lines if scribbling
         if self.client.is_scribbling and len(self.scribble_points) > 1:
