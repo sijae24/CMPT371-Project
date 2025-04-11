@@ -399,11 +399,14 @@ class GameClient:
                     name = player_info['name']
                     is_you = "(You)" if player_id == self.my_player_id else ""
 
+                    # Get the player's score from the board
+                    score = sum(row.count(player_id) for row in self.board)
+
                     swatch_rect = pygame.Rect(player_list_x, player_list_y, 20, 20)
                     pygame.draw.rect(self.screen, color, swatch_rect)
                     pygame.draw.rect(self.screen, COLOR_BLACK, swatch_rect, 1)
 
-                    name_text = f"{name} {is_you}"
+                    name_text = f"{name} {is_you} - {score} pts"
                     name_surf = self.font_ui.render(name_text, True, COLOR_BLACK)
                     self.screen.blit(name_surf, (player_list_x + 30, player_list_y))
 
