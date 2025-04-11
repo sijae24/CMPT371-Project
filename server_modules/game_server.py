@@ -1,6 +1,7 @@
 import socket
 import threading
 import time
+import sys
 from server_modules.player_manager import PlayerManager
 from server_modules.board import GameBoard
 from server_modules.broadcaster import Broadcaster
@@ -10,7 +11,7 @@ class GameServer:
     """The GameServer class is responsible for
     starting and stopping the game server."""
 
-    def __init__(self, host='0.0.0.0', port=65433, grid_size=8, max_players=4):
+    def __init__(self, host='0.0.0.0', port=65433, grid_size=4, max_players=4):
         """
         Initialize the GameServer instance with given parameters.
         """
@@ -106,6 +107,9 @@ class GameServer:
             result_msg = self.board.calculate_winner(self.player_manager)
             print(result_msg)
             self.broadcaster.broadcast(f"GAME_OVER|{result_msg}\n")
+            # Schedule server shutdown after 30 seconds
+            print("Server will shut down in 30 seconds...")
+            threading.Timer(30, self.shutdown).start()
 
     def shutdown(self):
         """
@@ -117,3 +121,4 @@ class GameServer:
         self.player_manager.disconnect_all()
         self.server_socket.close()
         print("Server shut down.")
+        sys.exit(0)

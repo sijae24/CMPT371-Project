@@ -82,7 +82,7 @@ class GridComponent:
 
         # Draw Scribble Lines if scribbling
         if self.client.is_scribbling and len(self.scribble_points) > 1:
-            pygame.draw.lines(screen, COLOR_SCRIBBLE, False, self.scribble_points, 3)
+            pygame.draw.lines(screen, COLOR_SCRIBBLE, False, self.scribble_points, 5)
 
         # Draw Lock Indicators
         for (r, c), player_id in self.client.locked_squares.items():
@@ -132,7 +132,7 @@ class GridComponent:
             r_curr, c_curr = self.coords_to_grid(pos[0], pos[1])
             if (r_curr, c_curr) == self.client.scribble_square:
                 self.scribble_points.append(pos)
-                radius = 3  
+                radius = 5  
                 #  Calculate coverage pixels
                 for dx in range(-radius, radius + 1):
                     for dy in range(-radius, radius + 1):

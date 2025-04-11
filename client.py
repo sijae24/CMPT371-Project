@@ -49,7 +49,7 @@ class GameClient:
         self.my_player_id = -1
         self.my_color_tuple = (0, 0, 0)
         self.my_color_str = 'black'
-        self.grid_size = 8
+        self.grid_size = 5
         self.board = []
         self.players = {}
         self.locked_squares = {}
