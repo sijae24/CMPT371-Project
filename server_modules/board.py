@@ -117,3 +117,21 @@ class GameBoard:
         with self.lock:
             return dict(self.locks)
 
+    def is_locked_by(self, row, col, player_id):
+        """Check if a square is locked by a specific player."""
+        return (row, col) in self.locks and self.locks[(row, col)] == player_id
+    
+    def is_square_available(self, row, col):
+        """Check if a square is available (not claimed and not locked)."""
+        return (0 <= row < self.grid_size and 
+                0 <= col < self.grid_size and 
+                self.board[row][col] == 0 and  
+                (row, col) not in self.locks)
+    
+    def lock_square(self, row, col, player_id):
+        """Lock a square for a player."""
+        if self.is_square_available(row, col):
+            self.locks[(row, col)] = player_id
+            return True
+        return False
+
