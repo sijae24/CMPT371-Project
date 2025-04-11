@@ -1,14 +1,15 @@
 import socket
 import threading
-import sys
 import time
 from server_modules.player_manager import PlayerManager
 from server_modules.board import GameBoard
 from server_modules.broadcaster import Broadcaster
 
+
 class GameServer:
-    """ The GameServer class is responsible for 
-        starting and stopping the game server. """
+    """The GameServer class is responsible for
+    starting and stopping the game server."""
+
     def __init__(self, host='0.0.0.0', port=65433, grid_size=8, max_players=4):
         """
         Initialize the GameServer instance with given parameters.
@@ -23,14 +24,16 @@ class GameServer:
         # Make the socket reusable
         self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-        # Create the player manager and board
+        # Create the player manager and board and reference to the game server
         self.player_manager = PlayerManager(max_players)
+        self.player_manager.set_game_server(self)  
         self.board = GameBoard(grid_size)
         # Create the broadcaster
         self.broadcaster = Broadcaster(self.player_manager, self.board)
         self.game_active = True
         self.timer_duration = 120  # Timer duration in seconds (2 minutes)
         self.timer_start_time = None  # To track when the timer starts
+        self.timer_started = False  # To track if timer has been started
 
     def start(self):
         """
@@ -60,7 +63,7 @@ class GameServer:
                     client_thread = threading.Thread(
                         target=self.player_manager.handle_client,
                         args=(client_socket, addr, self.board, self.broadcaster, self.check_game_over),
-                        daemon=True
+                        daemon=True,
                     )
                     client_thread.start()
 
@@ -94,8 +97,11 @@ class GameServer:
     def check_game_over(self):
         """
         Check if the game is over and broadcast the result if so.
+        Game ends when either:
+        1. The board is full
+        2. The timer has reached zero
         """
-        if self.board.is_full():
+        if self.board.is_full() or (self.timer_started and time.time() - self.timer_start_time >= self.timer_duration):
             self.game_active = False
             result_msg = self.board.calculate_winner(self.player_manager)
             print(result_msg)

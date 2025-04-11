@@ -1,18 +1,25 @@
 import threading
+import time
 
 # List of player colors to choose from
-PLAYER_COLORS = ['#FF0000', '#0000FF', '#00FF00', '#FFA500',
-                 '#800080', '#FFFF00', '#00FFFF', '#FF00FF']
+PLAYER_COLORS = ['#FF0000', '#0000FF', '#00FF00', '#FFA500', '#800080', '#FFFF00', '#00FFFF', '#FF00FF']
+
 
 class PlayerManager:
-    """PlayerManager class manages the connected players. 
-        It handles client connections, disconnections, and message processing."""
+    """PlayerManager class manages the connected players.
+    It handles client connections, disconnections, and message processing."""
+
     def __init__(self, max_players):
         """Initialize the PlayerManager instance with given max_players."""
         self.max_players = max_players
-        self.clients = {}  
+        self.clients = {}
         self.lock = threading.Lock()
         self.next_player_id = 1
+        self.game_server = None  # Reference to game server for timer control
+
+    def set_game_server(self, game_server):
+        """Set reference to game server instance."""
+        self.game_server = game_server
 
     def handle_client(self, client_socket, addr, board, broadcaster, on_game_over):
         """Handle a new client connection."""
@@ -40,18 +47,16 @@ class PlayerManager:
 
             with self.lock:
                 # Add the player to the clients dictionary
-                self.clients[client_socket] = {
-                    'id': player_id,
-                    'name': player_name,
-                    'color': player_color
-                }
+                self.clients[client_socket] = {'id': player_id, 'name': player_name, 'color': player_color}
 
             welcome_msg = f"WELCOME|{player_id}|{player_color}|{board.grid_size}\n"
             client_socket.sendall(welcome_msg.encode('utf-8'))
             # Broadcast the current state of the board
             broadcaster.broadcast_players()
             broadcaster.broadcast_board()
-            broadcaster.broadcast(f"INFO|{player_name} joined the game.\n", sender_socket=client_socket, exclude_sender=True)
+            broadcaster.broadcast(
+                f"INFO|{player_name} joined the game.\n", sender_socket=client_socket, exclude_sender=True
+            )
 
             # Receive and process messages
             buffer = ""
@@ -79,7 +84,13 @@ class PlayerManager:
 
         # Handle a LOCK_REQUEST command
         if command == "LOCK_REQUEST" and len(parts) == 3:
-            r, c = int(parts[1]), int(parts[2]) 
+            r, c = int(parts[1]), int(parts[2])
+            # Start timer on first lock request if not already started
+            if self.game_server and not self.game_server.timer_started:
+                self.game_server.timer_start_time = time.time()
+                self.game_server.timer_started = True
+                print("Game timer started!")
+
             # Attempt to lock the specified cell for the player
             granted = board.try_lock(r, c, player_id)
             if granted:
@@ -138,10 +149,7 @@ class PlayerManager:
     def get_players(self):
         """Get a dictionary of all connected players."""
         with self.lock:
-            return {
-                info['id']: {'name': info['name'], 'color': info['color']}
-                for info in self.clients.values()
-            }
+            return {info['id']: {'name': info['name'], 'color': info['color']} for info in self.clients.values()}
 
     def disconnect_all(self):
         """Disconnect all clients."""
@@ -149,4 +157,3 @@ class PlayerManager:
             for sock in list(self.clients):
                 self.disconnect(sock, None, None)
             self.clients.clear()
-
