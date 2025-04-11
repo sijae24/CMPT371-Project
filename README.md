@@ -7,12 +7,9 @@ Deny & Conquer is a multiplayer grid-based game where players compete to claim s
 - **Grid-based Board**: Players can lock and claim squares on a shared grid.
 - **Dynamic Updates**: Real-time updates of the board, player scores, and game state.
 - **Server-Client Architecture**: A dedicated server manages the game state and broadcasts updates to all connected clients.
-- **Customizable Settings**: Grid size, maximum players, and other parameters can be configured.
-
 
 ## Requirements
 - Python 3.8 or higher and pip
-
 
 ## Installation
 1. Install Python 3.8 or higher from the [official website](https://www.python.org/downloads/).

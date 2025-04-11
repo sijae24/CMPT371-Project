@@ -109,9 +109,7 @@ class PlayerManager:
                         # Check if the player has a lock on this square
                         if (r, c) in board.locks and board.locks[(r, c)] == player_id:
                             # Broadcast the scribble update to all clients
-                            # Remove the exclude_socket parameter
                             broadcaster.broadcast(f"PLAYER_SCRIBBLE|{r}|{c}|{player_id}|{x}|{y}\n")
-                            # Don't log every scribble update
                         else:
                             client_socket.sendall(f"ERROR|You don't have a lock on square ({r},{c}).\n".encode('utf-8'))
                 except Exception as e:
@@ -131,7 +129,7 @@ class PlayerManager:
                 # Disconnect the client and clean up resources
                 self.disconnect(client_socket, board, broadcaster)
     
-            # Keep this LOCK_REQUEST handler which has the correct format
+            # Handle a LOCK_REQUEST command
             elif command == "LOCK_REQUEST":
                 try:
                     # Add debug print to see what's coming in

@@ -186,6 +186,7 @@ class GameClient:
         # Only print non-scribble messages to reduce terminal spam
         if not message.startswith("PLAYER_SCRIBBLE"):
             print(f"Received: {message}")
+            
         try:
             parts = message.split('|', 1)
             command = parts[0]
