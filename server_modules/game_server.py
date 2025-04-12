@@ -1,11 +1,10 @@
 import socket
 import threading
-import time
 import sys
-from server_modules.player_manager import PlayerManager
-from server_modules.board import GameBoard
-from server_modules.broadcaster import Broadcaster
-
+import time
+from .board import GameBoard
+from .broadcaster import Broadcaster
+from .player_manager import PlayerManager
 
 class GameServer:
     """The GameServer class is responsible for

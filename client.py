@@ -6,14 +6,13 @@ import ast
 import time
 import sys
 from client_modules.constants import *
-from client_modules.grid import GridComponent
-from client_modules.login import LoginComponent
+from client_modules import GridComponent, LoginComponent
 
 
 class GameClient:
     def __init__(self):
         """
-        Initialize the GameClient instance. Set up the pygame display, 
+        Initialize the GameClient instance. Set up the pygame display,
         initialize the required fonts, and set up the network and game state.
         """
         pygame.init()
@@ -22,6 +21,7 @@ class GameClient:
         # Load window icon
         try:
             import os
+
             icon_path = os.path.join(os.path.dirname(__file__), "assets", "draw.png")
             window_icon = pygame.image.load(icon_path)
             pygame.display.set_icon(window_icon)
@@ -72,9 +72,9 @@ class GameClient:
         self.is_scribbling = False
         self.scribble_square = None
         self.pending_lock_request = None
-    
+
         self.other_players_scribbles = {}  # Format: {(r, c): {'player_id': id, 'points': [points]}}
-    
+
         # --- Scene Management ---
         self.current_scene = "login"
 
@@ -186,12 +186,12 @@ class GameClient:
         # Only print non-scribble messages to reduce terminal spam
         if not message.startswith("PLAYER_SCRIBBLE"):
             print(f"Received: {message}")
-            
+
         try:
             parts = message.split('|', 1)
             command = parts[0]
             payload = parts[1] if len(parts) > 1 else ""
-        
+
             if command == "WELCOME":
                 p_parts = payload.split('|')
                 self.my_player_id = int(p_parts[0])
@@ -221,7 +221,7 @@ class GameClient:
                                     self.is_scribbling = False
                                     self.scribble_square = None
                                     self.grid.reset_scribble_state()
-            
+
                 self.board = new_board
 
             elif command == "UPDATE_PLAYERS":
@@ -253,20 +253,19 @@ class GameClient:
                     self.set_status(f"Square ({r},{c}) locked by other player.", COLOR_STATUS_INFO)
                     self.pending_lock_request = None
 
-            
             elif command == "PLAYER_SCRIBBLE":
                 try:
                     parts = payload.split('|')
                     r, c, player_id = int(parts[0]), int(parts[1]), int(parts[2])
                     x, y = int(parts[3]), int(parts[4])
-                    
+
                     if (r, c) not in self.other_players_scribbles:
                         self.other_players_scribbles[(r, c)] = {'player_id': player_id, 'points': []}
-                    
+
                     self.other_players_scribbles[(r, c)]['points'].append((x, y))
                 except Exception as e:
                     print(f"Error processing PLAYER_SCRIBBLE: {e}, payload: {payload}")
-                    
+
             elif command == "SQUARE_UNLOCKED":
                 r, c = map(int, payload.split('|'))
                 if (r, c) in self.locked_squares:
@@ -301,10 +300,10 @@ class GameClient:
                 self.remaining_time = int(payload)
                 print(f"Timer updated: {self.remaining_time} seconds remaining")
 
-
         except Exception as e:
             self.log_message(f"Error processing msg '{message}': {e}")
             import traceback
+
             traceback.print_exc()
 
     def handle_disconnection(self, reason):
