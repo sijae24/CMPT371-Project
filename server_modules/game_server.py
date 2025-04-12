@@ -11,7 +11,7 @@ class GameServer:
     """The GameServer class is responsible for
     starting and stopping the game server."""
 
-    def __init__(self, host='0.0.0.0', port=65433, grid_size=5, max_players=4):
+    def __init__(self, host='0.0.0.0', port=65433, grid_size=8, max_players=4):
         """
         Initialize the GameServer instance with given parameters.
         """
