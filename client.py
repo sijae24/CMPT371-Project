@@ -10,6 +10,7 @@ from client_modules import GridComponent, LoginComponent
 
 
 class GameClient:
+    """Represents the game client responsible for managing the game state, UI, and network connections."""
     def __init__(self):
         """
         Initialize the GameClient instance. Set up the pygame display,
@@ -72,10 +73,7 @@ class GameClient:
         self.is_scribbling = False
         self.scribble_square = None
         self.pending_lock_request = None
-
-        self.other_players_scribbles = {}  # Format: {(r, c): {'player_id': id, 'points': [points]}}
-
-        # --- Scene Management ---
+        self.other_players_scribbles = {} 
         self.current_scene = "login"
 
         # --- Components ---
@@ -86,6 +84,8 @@ class GameClient:
         self.start_queue_processing()
 
     def hex_to_rgb(self, hex_color):
+        """ Converts a given hex color to an RGB tuple."""
+
         if not hasattr(self, '_color_cache'):
             self._color_cache = {}
         if hex_color not in self._color_cache:
@@ -97,8 +97,9 @@ class GameClient:
                 self._color_cache[hex_color] = (0, 0, 0)
         return self._color_cache[hex_color]
 
-    # === Network Methods ===
+    # === Network Methods for Connecting with Server ===
     def connect_to_game(self):
+        """Connect to the game server using the provided IP and port."""
         if not self.player_name:
             self.set_status("Player Name cannot be empty.", COLOR_STATUS_ERROR)
             return
@@ -115,12 +116,14 @@ class GameClient:
 
         try:
             self.set_status(f"Connecting to {self.server_ip}:{self.server_port}...", COLOR_STATUS_INFO)
+            # Create a socket and connect to the server
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.sock.connect((self.server_ip, port_num))
             self.connected = True
             self.game_over = False
             self.game_over_message = ""
 
+            # Send connection message to server
             connect_msg = f"CONNECT|{self.player_name}\n"
             self.sock.sendall(connect_msg.encode('utf-8'))
 
@@ -142,6 +145,7 @@ class GameClient:
             self.cleanup_connection()
 
     def receive_messages(self):
+        """ Receive messages from the server and process them."""
         buffer = ""
         while self.connected and self.sock:
             try:
@@ -172,6 +176,7 @@ class GameClient:
         print("Receive thread finished.")
 
     def process_queue(self):
+        """Process messages in the queue."""
         try:
             while not self.message_queue.empty():
                 msg_type, data = self.message_queue.get_nowait()
@@ -183,15 +188,19 @@ class GameClient:
             pass
 
     def handle_server_message(self, message):
+        """Handle messages received from the server."""
+
         # Only print non-scribble messages to reduce terminal spam
         if not message.startswith("PLAYER_SCRIBBLE"):
             print(f"Received: {message}")
 
         try:
+            # Split the message into command and payload
             parts = message.split('|', 1)
             command = parts[0]
             payload = parts[1] if len(parts) > 1 else ""
 
+            # Welcome message
             if command == "WELCOME":
                 p_parts = payload.split('|')
                 self.my_player_id = int(p_parts[0])
@@ -205,6 +214,8 @@ class GameClient:
                 self.grid.calculate_square_size()
                 self.set_status("Game started! Click white squares.", COLOR_STATUS_INFO)
 
+
+            # Update board where the player has scribbled
             elif command == "UPDATE_BOARD":
                 new_board = ast.literal_eval(payload)
                 # Check for newly claimed squares and clear their scribbles
@@ -224,9 +235,12 @@ class GameClient:
 
                 self.board = new_board
 
+            # Update player list
             elif command == "UPDATE_PLAYERS":
                 self.players = ast.literal_eval(payload)
 
+
+            # Lock requests and responses
             elif command == "LOCK_GRANTED":
                 r, c = map(int, payload.split('|'))
                 if self.pending_lock_request == (r, c):
@@ -253,6 +267,7 @@ class GameClient:
                     self.set_status(f"Square ({r},{c}) locked by other player.", COLOR_STATUS_INFO)
                     self.pending_lock_request = None
 
+            # Update scribbles from other players
             elif command == "PLAYER_SCRIBBLE":
                 try:
                     parts = payload.split('|')
@@ -266,6 +281,7 @@ class GameClient:
                 except Exception as e:
                     print(f"Error processing PLAYER_SCRIBBLE: {e}, payload: {payload}")
 
+            #  Handle scribble unlocks
             elif command == "SQUARE_UNLOCKED":
                 r, c = map(int, payload.split('|'))
                 if (r, c) in self.locked_squares:
@@ -280,6 +296,7 @@ class GameClient:
                     self.grid.scribble_points = []
                     self.grid.scribble_coverage_pixels.clear()
 
+            # Show information status messages such as game over and errors
             elif command == "INFO":
                 self.log_message(f"Info: {payload}")
             elif command == "ERROR":
@@ -296,6 +313,7 @@ class GameClient:
                 print("Client will shut down in 20 seconds...")
                 threading.Timer(20, self.on_closing).start()
 
+            # Update timer
             elif command == "TIMER_UPDATE":
                 self.remaining_time = int(payload)
                 print(f"Timer updated: {self.remaining_time} seconds remaining")
@@ -307,6 +325,7 @@ class GameClient:
             traceback.print_exc()
 
     def handle_disconnection(self, reason):
+        """Handle disconnection from the server."""
         if self.connected:
             self.connected = False
             self.log_message(f"Disconnected: {reason}")
@@ -315,6 +334,7 @@ class GameClient:
             self.current_scene = "login"
 
     def cleanup_connection(self):
+        """Clean up the connection."""
         self.connected = False
         if self.sock:
             try:
@@ -343,10 +363,12 @@ class GameClient:
             return False
 
     def set_status(self, text, color):
+        """Set the status text and color."""
         self.status_text = text
         self.status_color = color
 
     def log_message(self, message):
+        """Log a message to the console and store it."""
         print(f"LOG: {message}")
         if not hasattr(self, '_log_messages'):
             self._log_messages = []
@@ -355,13 +377,16 @@ class GameClient:
             self._log_messages.pop(0)
 
     def start_queue_processing(self):
+        """Process the message queue in a separate thread."""
         self.process_queue()
 
     def run(self):
+        """Main game loop."""
         running = True
         while running:
             self.process_queue()
 
+            # Handle events for login and game scenes
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
@@ -399,6 +424,7 @@ class GameClient:
                 player_list_x = GRID_TOP_LEFT[0] + GRID_AREA_SIZE + 20
                 player_list_y = GRID_TOP_LEFT[1] + (GRID_AREA_SIZE // 2) - (len(self.players) * 30 // 2)
 
+                # Show player list
                 for player_id, player_info in self.players.items():
                     color = self.hex_to_rgb(player_info['color'])
                     name = player_info['name']
@@ -423,6 +449,7 @@ class GameClient:
         self.on_closing()
 
     def on_closing(self):
+        """Handle window closing."""
         print("Closing client...")
         if self.connected:
             self.send_message("DISCONNECT\n")
